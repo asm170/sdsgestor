@@ -1,9 +1,19 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"os"
 )
+
+func chk(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
 
 func main() {
 	/* creamos un cliente especial que no comprueba la validez de los certificados
@@ -18,7 +28,7 @@ func main() {
 	data.Set("cmd", "hola")          // comando (string)
 	data.Set("mensaje", "miusuario") // usuario (string)
 
-	r, err := client.PostForm("https://localhost:10443", data) // enviamos por POST
+	r, err := client.PostForm("https://localhost:10441", data) // enviamos por POST
 	chk(err)
 	io.Copy(os.Stdout, r.Body) // mostramos el cuerpo de la respuesta (es un reader)
 	fmt.Println()

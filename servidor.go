@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"encoding/json"
+	"fmt"
 	"httpscerts"
 	"io"
 	"log"
@@ -12,16 +14,40 @@ import (
 	"time"
 )
 
+var coleccion map[string]jsonStruct
+
 func handler(w http.ResponseWriter, req *http.Request) {
 	req.ParseForm()                              // es necesario parsear el formulario
 	w.Header().Set("Content-Type", "text/plain") // cabecera estándar
 
-	switch req.Form.Get("cmd") { // comprobamos comando desde el cliente
-	case "hola": // ** registro
-		response(w, true, "Hola "+req.Form.Get("mensaje"))
-	default:
-		response(w, false, "Comando inválido")
+	//login := req.Form.Get("Usuario")
+	//pass := req.Form.Get("Password")
+
+	decoder := json.NewDecoder(req.Body)
+	var j jsonStruct
+	decoder.Decode(&j)
+
+	coleccion = make(map[string]jsonStruct)
+	coleccion["login1"] = j
+
+	// Create a file for IO
+	encodeFile, err := os.Create("login.gob")
+	if err != nil {
+		panic(err)
 	}
+
+	// Since this is a binary format large parts of it will be unreadable
+	encoder := gob.NewEncoder(encodeFile)
+
+	// Write to the file
+	if err := encoder.Encode(coleccion); err != nil {
+		response(w, false, "Error")
+		panic(err)
+	}
+
+	fmt.Println(coleccion["login1"].Usuario)
+	response(w, true, "Texto enviado correctamente")
+	encodeFile.Close()
 }
 
 func chk(e error) {
@@ -34,6 +60,11 @@ func chk(e error) {
 type resp struct {
 	Ok  bool   // true -> correcto, false -> error
 	Msg string // mensaje adicional
+}
+
+type jsonStruct struct {
+	Usuario  string
+	Password string
 }
 
 // función para escribir una respuesta del servidor

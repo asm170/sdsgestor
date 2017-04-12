@@ -3,9 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha512"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,15 +12,9 @@ import (
 	"os/exec"
 )
 
-type jsonStruct struct {
+type jsonIdentificacion struct {
 	Usuario  string
 	Password string
-}
-
-func chk(e error) {
-	if e != nil {
-		panic(e)
-	}
 }
 
 func limpiarPantallaWindows() {
@@ -33,18 +25,6 @@ func limpiarPantallaWindows() {
 
 func loginUsuario(usuario string, password string, validado bool) bool {
 	return validado
-}
-
-// función para codificar de []bytes a string (Base64)
-func encode64(data []byte) string {
-	return base64.StdEncoding.EncodeToString(data) // sólo utiliza caracteres "imprimibles"
-}
-
-// función para decodificar de string a []bytes (Base64)
-func decode64(s string) []byte {
-	b, err := base64.StdEncoding.DecodeString(s) // recupera el formato original
-	chk(err)                                     // comprobamos el error
-	return b                                     // devolvemos los datos originales
 }
 
 func main() {
@@ -169,14 +149,15 @@ func main() {
 						mensajeErrorRegistro = ""
 						opMenuPrincipal = "0"
 						// Resumimos en SHA3 el password
-						passRegistroSHA3 := sha512.Sum512([]byte(passRegistro))
+						//passRegistroSHA3 := sha512.Sum512([]byte(passRegistro))
+						passRegistroSHA3 := hashSha512(passRegistro)
 						// Partimos el resumen en dos partes iguales y la
 						// primera parte se la enviamos al servidor
 						parteUnoPassRegistroSHA3 := passRegistroSHA3[0:32]
 						fmt.Printf("SHA3:           [%s]\n", passRegistroSHA3)
 						fmt.Printf("SHA3[0  - 32]:  [%s]\n", encode64(parteUnoPassRegistroSHA3))
 						//fmt.Printf("SHA3[32 - 64]:  [%s]\n", keyClient[32:64])
-						re := jsonStruct{Usuario: usuario, Password: encode64(parteUnoPassRegistroSHA3)}
+						re := jsonIdentificacion{Usuario: usuario, Password: encode64(parteUnoPassRegistroSHA3)}
 						rJSON, err := json.Marshal(&re)
 						chk(err)
 						r, err := client.Post("https://localhost:10441", "application/json", bytes.NewBuffer(rJSON))
@@ -207,19 +188,5 @@ func main() {
 
 		}
 	}
-	// Parseamos a JSON los datos del usuario
-	/*
-		re := jsonStruct{Usuario: usuario, Password: password}
-		rJSON, err := json.Marshal(&re)
-		chk(err)
-		r, err := client.Post("https://localhost:10441", "application/json", bytes.NewBuffer(rJSON))
-	*/
-	/*
-			// ** ejemplo de registro
-			data := url.Values{}             // estructura para contener los valores
-			data.Set("cmd", "hola")          // comando (string)
-			data.Set("mensaje", "miusuario") // usuario (string)
-		r, err := client.PostForm("https://localhost:10441", data) // enviamos por POST
-	*/
 
 }

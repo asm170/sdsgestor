@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha512"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,12 +35,25 @@ func loginUsuario(usuario string, password string, validado bool) bool {
 	return validado
 }
 
+// función para codificar de []bytes a string (Base64)
+func encode64(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data) // sólo utiliza caracteres "imprimibles"
+}
+
+// función para decodificar de string a []bytes (Base64)
+func decode64(s string) []byte {
+	b, err := base64.StdEncoding.DecodeString(s) // recupera el formato original
+	chk(err)                                     // comprobamos el error
+	return b                                     // devolvemos los datos originales
+}
+
 func main() {
 	var opMenuPrincipal string
 	var opMenuUsuario string
 	var usuario string
 	var password string
-	var repitePassword string
+	var passRegistro string
+	var repitePassRegistro string
 	var mensajeErrorLogin string
 	var mensajeErrorRegistro string
 	var mensajeAdministracion string
@@ -48,7 +63,6 @@ func main() {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: tr}
-
 	limpiarPantallaWindows()
 	opMenuPrincipal = "0"
 	scanner := bufio.NewScanner(os.Stdin)
@@ -125,7 +139,7 @@ func main() {
 					opMenuPrincipal = "0"
 					limpiarPantallaWindows()
 				} else {
-					mensajeErrorLogin = "El nombre de usuario y/o password son incorrectos\n"
+					mensajeErrorLogin = "[ERROR] El nombre de usuario y/o password son incorrectos\n"
 				}
 				/*
 					TODO: Comprobamos que los datos de usuario
@@ -145,16 +159,43 @@ func main() {
 				usuario = scanner.Text()
 				fmt.Print("Password: ")
 				scanner.Scan()
-				password = scanner.Text()
+				passRegistro = scanner.Text()
 				fmt.Print("Repite el password: ")
 				scanner.Scan()
-				repitePassword = scanner.Text()
+				repitePassRegistro = scanner.Text()
+				// Comprobamos que el usuario ha introducido todos los datos
+				if len(usuario) > 0 && len(passRegistro) > 0 && len(repitePassRegistro) > 0 {
+					if passRegistro == repitePassRegistro {
+						mensajeErrorRegistro = ""
+						opMenuPrincipal = "0"
+						// Resumimos en SHA3 el password
+						passRegistroSHA3 := sha512.Sum512([]byte(passRegistro))
+						// Partimos el resumen en dos partes iguales y la
+						// primera parte se la enviamos al servidor
+						parteUnoPassRegistroSHA3 := passRegistroSHA3[0:32]
+						fmt.Printf("SHA3:           [%s]\n", passRegistroSHA3)
+						fmt.Printf("SHA3[0  - 32]:  [%s]\n", encode64(parteUnoPassRegistroSHA3))
+						//fmt.Printf("SHA3[32 - 64]:  [%s]\n", keyClient[32:64])
+						re := jsonStruct{Usuario: usuario, Password: encode64(parteUnoPassRegistroSHA3)}
+						rJSON, err := json.Marshal(&re)
+						chk(err)
+						r, err := client.Post("https://localhost:10441", "application/json", bytes.NewBuffer(rJSON))
+						chk(err)
+						io.Copy(os.Stdout, r.Body) // mostramos el cuerpo de la respuesta (es un reader)
+						fmt.Println()
+						//limpiarPantallaWindows()
+					} else {
+						mensajeErrorRegistro = "[ERROR] Los password no coinciden\n"
+						opMenuPrincipal = "2" // Mostramos el registro otra vez
+					}
+				} else {
+					mensajeErrorRegistro = "[ERROR] Te has dejado campos sin rellenar\n"
+					opMenuPrincipal = "2" // Mostramos el registro otra vez
+				}
 				//mensajeErrorRegistro = "Los password no coinciden\n"
 				//opMenuPrincipal = "2" // Mostramos el registro otra vez
-				opMenuPrincipal = "0"
-				limpiarPantallaWindows()
 
-				fmt.Printf("[LOG] [Registro] Usuario: [%s] Password: [%s] Repite password: [%s]\n", usuario, password, repitePassword)
+				fmt.Printf("[LOG] [Registro] Usuario: [%s] Password: [%s] Repite password: [%s]\n", usuario, passRegistro, repitePassRegistro)
 				/*
 					TODO: Se comprueba que los datos proporcionados
 					por el usuario son correctos, si no son correctos
@@ -167,10 +208,12 @@ func main() {
 		}
 	}
 	// Parseamos a JSON los datos del usuario
-	re := jsonStruct{Usuario: usuario, Password: password}
-	rJSON, err := json.Marshal(&re)
-	chk(err)
-	r, err := client.Post("https://localhost:10441", "application/json", bytes.NewBuffer(rJSON))
+	/*
+		re := jsonStruct{Usuario: usuario, Password: password}
+		rJSON, err := json.Marshal(&re)
+		chk(err)
+		r, err := client.Post("https://localhost:10441", "application/json", bytes.NewBuffer(rJSON))
+	*/
 	/*
 			// ** ejemplo de registro
 			data := url.Values{}             // estructura para contener los valores
@@ -178,7 +221,5 @@ func main() {
 			data.Set("mensaje", "miusuario") // usuario (string)
 		r, err := client.PostForm("https://localhost:10441", data) // enviamos por POST
 	*/
-	chk(err)
-	io.Copy(os.Stdout, r.Body) // mostramos el cuerpo de la respuesta (es un reader)
-	fmt.Println()
+
 }

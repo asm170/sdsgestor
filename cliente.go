@@ -17,6 +17,28 @@ type jsonIdentificacion struct {
 	Password string
 }
 
+type jsonIdentificacionServidor struct {
+	Valido  bool
+	Mensaje string
+}
+
+type jsonBuscar struct {
+	Usuario string
+	Cuenta  string
+}
+
+type jsonResultado struct {
+	Encontrado bool
+	Cuenta     string
+	Password   string
+}
+
+type jsonNewPass struct {
+	Usuario  string
+	Cuenta   string
+	Password string
+}
+
 func limpiarPantallaWindows() {
 	cmd := exec.Command("cmd", "/c", "cls")
 	cmd.Stdout = os.Stdout

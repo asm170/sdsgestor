@@ -16,6 +16,33 @@ import (
 
 var coleccion map[string]jsonStruct
 
+type jsonIdentificacion struct {
+	Usuario  string
+	Password string
+}
+
+type jsonIdentificacionServidor struct {
+	Valido  bool
+	Mensaje string
+}
+
+type jsonBuscar struct {
+	Usuario string
+	Cuenta  string
+}
+
+type jsonResultado struct {
+	Encontrado bool
+	Cuenta     string
+	Password   string
+}
+
+type jsonNewPass struct {
+	Usuario  string
+	Cuenta   string
+	Password string
+}
+
 func handler(w http.ResponseWriter, req *http.Request) {
 	req.ParseForm()                              // es necesario parsear el formulario
 	w.Header().Set("Content-Type", "text/plain") // cabecera estándar

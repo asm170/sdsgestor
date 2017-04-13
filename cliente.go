@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -56,6 +55,7 @@ func main() {
 	var password string
 	var passRegistro string
 	var repitePassRegistro string
+	var mensajeMenuPrincipal string
 	var mensajeErrorLogin string
 	var mensajeErrorRegistro string
 	var mensajeAdministracion string
@@ -73,6 +73,7 @@ func main() {
 			fmt.Println("+-----------------------------------------+")
 			fmt.Println("|  Bienvenido a tu Gestor de Contraseñas! |")
 			fmt.Println("+-----------------------------------------+")
+			fmt.Printf(mensajeMenuPrincipal)
 			fmt.Println("[1] Entrar")
 			fmt.Println("[2] Registrate")
 			fmt.Println("[3] Salir")
@@ -171,22 +172,29 @@ func main() {
 						mensajeErrorRegistro = ""
 						opMenuPrincipal = "0"
 						// Resumimos en SHA3 el password
-						//passRegistroSHA3 := sha512.Sum512([]byte(passRegistro))
 						passRegistroSHA3 := hashSha512(passRegistro)
 						// Partimos el resumen en dos partes iguales y la
 						// primera parte se la enviamos al servidor
 						parteUnoPassRegistroSHA3 := passRegistroSHA3[0:32]
-						fmt.Printf("SHA3:           [%s]\n", passRegistroSHA3)
-						fmt.Printf("SHA3[0  - 32]:  [%s]\n", encode64(parteUnoPassRegistroSHA3))
-						//fmt.Printf("SHA3[32 - 64]:  [%s]\n", keyClient[32:64])
+						// Convertimos a JSON los datos que le enviaremos al servidor
 						re := jsonIdentificacion{Usuario: usuario, Password: encode64(parteUnoPassRegistroSHA3)}
-						rJSON, err := json.Marshal(&re)
+						jsonIdentificacion, err := json.Marshal(&re)
 						chk(err)
-						r, err := client.Post("https://localhost:10441", "application/json", bytes.NewBuffer(rJSON))
+						// Enviamos al servidor los datos de registro mediante POST
+						r, err := client.Post("https://localhost:10441/registrar", "application/json", bytes.NewBuffer(jsonIdentificacion))
 						chk(err)
-						io.Copy(os.Stdout, r.Body) // mostramos el cuerpo de la respuesta (es un reader)
-						fmt.Println()
-						//limpiarPantallaWindows()
+						// Recogemos la respuesta del servidor y lo convertimos a JSON
+						decoder := json.NewDecoder(r.Body)
+						var jis jsonIdentificacionServidor
+						decoder.Decode(&jis)
+						// Comprobamos la respuesta del servidor
+						if jis.Valido == true {
+							mensajeMenuPrincipal = "[INFO] Registro de usuario realizado correctamente!\n"
+						} else {
+							mensajeErrorRegistro = "[ERROR] " + jis.Mensaje + "\n"
+							opMenuPrincipal = "2" // Mostramos el registro otra vez
+						}
+						limpiarPantallaWindows()
 					} else {
 						mensajeErrorRegistro = "[ERROR] Los password no coinciden\n"
 						opMenuPrincipal = "2" // Mostramos el registro otra vez
@@ -195,10 +203,6 @@ func main() {
 					mensajeErrorRegistro = "[ERROR] Te has dejado campos sin rellenar\n"
 					opMenuPrincipal = "2" // Mostramos el registro otra vez
 				}
-				//mensajeErrorRegistro = "Los password no coinciden\n"
-				//opMenuPrincipal = "2" // Mostramos el registro otra vez
-
-				fmt.Printf("[LOG] [Registro] Usuario: [%s] Password: [%s] Repite password: [%s]\n", usuario, passRegistro, repitePassRegistro)
 				/*
 					TODO: Se comprueba que los datos proporcionados
 					por el usuario son correctos, si no son correctos

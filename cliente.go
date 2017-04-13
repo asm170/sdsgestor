@@ -82,6 +82,7 @@ func main() {
 			opMenuPrincipal = scanner.Text()
 		}
 		if opMenuPrincipal != "3" {
+			mensajeMenuPrincipal = ""
 			switch opMenuPrincipal {
 			case "1": // Login de usuario
 				limpiarPantallaWindows()

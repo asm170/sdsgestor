@@ -6,10 +6,24 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
+	"time"
 )
+
+const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "¡!¿?$%&@*+-_"
+
+var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+func randomPassword(length int, charset string) string {
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+}
 
 type jsonIdentificacion struct {
 	Usuario  string
@@ -49,13 +63,15 @@ func main() {
 	var opMenuUsuario string
 	var usuario string
 	var passLogin string
-	//var passAES string
+	var passAES []byte
 	var passRegistro string
+	var passCuenta string
 	var repitePassRegistro string
 	var mensajeMenuPrincipal string
 	var mensajeErrorLogin string
 	var mensajeErrorRegistro string
 	var mensajeAdministracion string
+	var mensajeNuevaCuenta string
 	/* creamos un cliente especial que no comprueba la validez de los certificados
 	esto es necesario por que usamos certificados autofirmados (para pruebas) */
 	tr := &http.Transport{
@@ -99,7 +115,7 @@ func main() {
 					passLoginSHA3 := hashSha512(passLogin)
 					// Partimos el SHA3 generado
 					passSHA3 := passLoginSHA3[0:32]
-					//passAES = encode64(passLoginSHA3[32:64])
+					passAES = passLoginSHA3[32:64]
 					//fmt.Printf("[DEBUG]	usuario	[%s]	password	[%s] \n", usuario, encode64(passSHA3))
 					// Convertimos a JSON los datos que le enviaremos al servidor
 					re := jsonIdentificacion{Usuario: usuario, Password: encode64(passSHA3)}
@@ -120,10 +136,10 @@ func main() {
 					*/
 					if jis.Valido == true {
 						mensajeErrorLogin = ""
-						limpiarPantallaWindows()
 						opMenuUsuario = "0"
 						for opMenuUsuario != "5" {
 							if opMenuUsuario == "0" {
+								limpiarPantallaWindows()
 								// Mostramos el menu del usuario
 								fmt.Println("+---------------------------+")
 								fmt.Println("|  Panel de administracion  |")
@@ -138,6 +154,7 @@ func main() {
 								fmt.Print("Elige una opcion: ")
 								scanner.Scan()
 								opMenuUsuario = scanner.Text()
+								mensajeAdministracion = ""
 							}
 							if opMenuUsuario != "5" {
 								limpiarPantallaWindows()
@@ -146,8 +163,88 @@ func main() {
 									fmt.Println("Buscar una cuenta")
 									mensajeAdministracion = ""
 								case "2":
-									fmt.Println("Añadir una nueva cuenta")
-									mensajeAdministracion = ""
+									nombreCuenta := ""
+									var opAleatoria string
+									// Mostramos el menu del usuario
+									for len(nombreCuenta) == 0 {
+										limpiarPantallaWindows()
+										fmt.Println("+---------------------------+")
+										fmt.Println("|  Añadir una nueva cuenta  |")
+										fmt.Println("+---------------------------+")
+										fmt.Printf(mensajeNuevaCuenta)
+										fmt.Printf("Estas logueado como: [%s] \n", usuario)
+										fmt.Print("Introduce el nombre de la cuenta (Ejemplo: facebook): ")
+										scanner.Scan()
+										nombreCuenta = scanner.Text()
+										if len(nombreCuenta) == 0 {
+											mensajeNuevaCuenta = "[ERROR] Debes introducir un nombre para la nueva cuenta\n"
+										} else {
+											mensajeNuevaCuenta = ""
+										}
+									}
+									for opAleatoria != "1" && opAleatoria != "2" {
+										limpiarPantallaWindows()
+										fmt.Println("+---------------------------+")
+										fmt.Println("|  Añadir una nueva cuenta  |")
+										fmt.Println("+---------------------------+")
+										fmt.Printf(mensajeNuevaCuenta)
+										fmt.Printf("Estas logueado como: [%s] \n", usuario)
+										fmt.Println("Deseas generar aleatoriamente el password? ")
+										fmt.Println("[1] Si")
+										fmt.Println("[2] No")
+										scanner.Scan()
+										opAleatoria = scanner.Text()
+									}
+									// Password aleatorio
+									if opAleatoria == "1" {
+										// Generamos el password de forma aleatoriamente
+										passCuenta = randomPassword(15, charset)
+										//fmt.Printf("[DEBUG]	[random password]	passCuenta:	[%s]\n", passCuenta)
+									} else { // Password manual
+										passCuenta = ""
+										repitePassCuenta := ""
+										for len(passCuenta) == 0 || len(repitePassCuenta) == 0 || passCuenta != repitePassCuenta {
+											limpiarPantallaWindows()
+											fmt.Println("+---------------------------+")
+											fmt.Println("|  Añadir una nueva cuenta  |")
+											fmt.Println("+---------------------------+")
+											fmt.Printf(mensajeNuevaCuenta)
+											fmt.Printf("Estas logueado como: [%s] \n", usuario)
+											fmt.Print("Password: ")
+											scanner.Scan()
+											passCuenta = scanner.Text()
+											fmt.Print("Repite el password: ")
+											scanner.Scan()
+											repitePassCuenta = scanner.Text()
+											if len(passCuenta) == 0 || len(repitePassCuenta) == 0 {
+												mensajeNuevaCuenta = "[ERROR] Debes introducir un password\n"
+											} else if passCuenta != repitePassCuenta {
+												mensajeNuevaCuenta = "[ERROR] Los password deben coincidir\n"
+											} else {
+												mensajeNuevaCuenta = ""
+											}
+										}
+									}
+									// Ciframos con AES
+									re := jsonNewPass{Usuario: usuario, Cuenta: nombreCuenta, Password: encode64(encrypt([]byte(passCuenta), passAES))}
+									jsonNewPass, err := json.Marshal(&re)
+									chk(err)
+									//encriptado := encrypt([]byte(passCuenta), passAES)
+									//fmt.Printf("[DEBUG]	[ENCRYPT]	Usuario:	[%s]	Cuenta:	[%s]	Password:	[%s]\n", usuario, nombreCuenta, encode64(encrypt([]byte(passCuenta), passAES)))
+									//fmt.Printf("[DEBUG]	[DECRYPT]	Usuario:	[%s]	Cuenta:	[%s]	Password:	[%s]\n", usuario, nombreCuenta, decrypt([]byte(encriptado), passAES))
+									// Enviamos al servidor los datos de registro mediante POST
+									r, err := client.Post("https://localhost:10441/add", "application/json", bytes.NewBuffer(jsonNewPass))
+									chk(err)
+									// Recogemos la respuesta del servidor y lo convertimos a JSON
+									decoder := json.NewDecoder(r.Body)
+									//var jis jsonIdentificacionServidor
+									decoder.Decode(&jis)
+									// Comprobamos la respuesta del servidor
+									if jis.Valido == true {
+										mensajeAdministracion = "[INFO] La cuenta se ha añadido correctamente!\n"
+									} else {
+										mensajeAdministracion = "[ERROR] " + jis.Mensaje + "\n"
+									}
 								case "3":
 									fmt.Println("Modificar una cuenta")
 									mensajeAdministracion = ""
@@ -213,7 +310,7 @@ func main() {
 							mensajeMenuPrincipal = "[INFO] Registro de usuario realizado correctamente!\n"
 						} else {
 							mensajeErrorRegistro = "[ERROR] " + jis.Mensaje + "\n"
-							opMenuPrincipal = "2" // Mostramos el registro otra vez
+							//opMenuPrincipal = "2" // Mostramos el registro otra vez
 						}
 						limpiarPantallaWindows()
 					} else {

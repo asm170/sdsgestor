@@ -6,8 +6,9 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"encoding/base64"
-	"golang.org/x/crypto/scrypt"
 	"io"
+
+	"golang.org/x/crypto/scrypt"
 )
 
 // función para comprobar errores (ahorra escritura)
@@ -30,27 +31,23 @@ func decode64(s string) []byte {
 }
 
 // función para cifrar (con AES en este caso), adjunta el IV al principio
-func encrypt(data string, key []byte) (out string) {
-	byteData := decode64(data)
-	preout := make([]byte, len(byteData)+16)
-	rand.Read(preout[:16])
-	blk, err := aes.NewCipher(key)
-	chk(err)
-	ctr := cipher.NewCTR(blk, preout[:16])
-	ctr.XORKeyStream(preout[16:], byteData)
-	out = encode64(preout)
+func encrypt(data, key []byte) (out []byte) {
+	out = make([]byte, len(data)+16)    // reservamos espacio para el IV al principio
+	rand.Read(out[:16])                 // generamos el IV
+	blk, err := aes.NewCipher(key)      // cifrador en bloque (AES), usa key
+	chk(err)                            // comprobamos el error
+	ctr := cipher.NewCTR(blk, out[:16]) // cifrador en flujo: modo CTR, usa IV
+	ctr.XORKeyStream(out[16:], data)    // ciframos los datos
 	return
 }
 
 // función para descifrar (con AES en este caso)
-func decrypt(data string, key []byte) (out string) {
-	byteData := decode64(data)
-	preout := make([]byte, len(byteData)-16)
-	blk, err := aes.NewCipher(key)
-	chk(err)
-	ctr := cipher.NewCTR(blk, byteData[:16])
-	ctr.XORKeyStream(preout, byteData[16:])
-	out = encode64(preout)
+func decrypt(data, key []byte) (out []byte) {
+	out = make([]byte, len(data)-16)     // la salida no va a tener el IV
+	blk, err := aes.NewCipher(key)       // cifrador en bloque (AES), usa key
+	chk(err)                             // comprobamos el error
+	ctr := cipher.NewCTR(blk, data[:16]) // cifrador en flujo: modo CTR, usa IV
+	ctr.XORKeyStream(out, data[16:])     // desciframos (doble cifrado) los datos
 	return
 }
 

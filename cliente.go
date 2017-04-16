@@ -73,6 +73,7 @@ func main() {
 	var mensajeAdministracion string
 	var mensajeNuevaCuenta string
 	var mensajeBuscarCuenta string
+	var mensajeEliminarCuenta string
 	/* creamos un cliente especial que no comprueba la validez de los certificados
 	esto es necesario por que usamos certificados autofirmados (para pruebas) */
 	tr := &http.Transport{
@@ -296,14 +297,53 @@ func main() {
 									if jis.Valido == true {
 										mensajeAdministracion = "[INFO] La cuenta se ha añadido correctamente!\n"
 									} else {
-										mensajeAdministracion = "[ERROR] " + jis.Mensaje + "\n"
+										mensajeAdministracion = "[INFO] " + jis.Mensaje + "\n"
 									}
 								case "3":
 									fmt.Println("Modificar una cuenta")
 									mensajeAdministracion = ""
 								case "4":
-									fmt.Println("Eliminar una cuenta")
-									mensajeAdministracion = ""
+									var opEliminar string
+									nombreCuenta := ""
+									// Mostramos el menu del usuario
+									for len(nombreCuenta) == 0 {
+										limpiarPantallaWindows()
+										fmt.Println("+-----------------------+")
+										fmt.Println("|  Eliminar una cuenta  |")
+										fmt.Println("+-----------------------+")
+										fmt.Printf(mensajeEliminarCuenta)
+										fmt.Printf("Estas logueado como: [%s] \n", usuario)
+										fmt.Print("Introduce el nombre de la cuenta que deseas eliminar: ")
+										scanner.Scan()
+										nombreCuenta = scanner.Text()
+										if len(nombreCuenta) == 0 {
+											mensajeEliminarCuenta = "[ERROR] Introduce un nombre de cuenta para eliminarla\n"
+										} else {
+											mensajeEliminarCuenta = ""
+										}
+									}
+									fmt.Println("Estas seguro de querer eliminar la cuenta [" + nombreCuenta + "]? ")
+									fmt.Println("[1] Si")
+									fmt.Println("[2] No")
+									scanner.Scan()
+									opEliminar = scanner.Text()
+									if opEliminar == "1" {
+										// Enviamos al servidor los datos para realizar el borrado de la cuenta
+										re := jsonBuscar{Usuario: usuario, Cuenta: nombreCuenta}
+										jsonBuscar, err := json.Marshal(&re)
+										chk(err)
+										r, err := client.Post("https://localhost:10441/delete", "application/json", bytes.NewBuffer(jsonBuscar))
+										chk(err)
+										// Recogemos la respuesta del servidor y lo convertimos a JSON
+										decoder := json.NewDecoder(r.Body)
+										//var jis jsonIdentificacionServidor
+										decoder.Decode(&jis)
+										if jis.Valido == true {
+											mensajeAdministracion = "[INFO] La cuenta se ha eliminado correctamente!\n"
+										} else {
+											mensajeAdministracion = "[INFO] " + jis.Mensaje + "\n"
+										}
+									}
 								}
 								// Colocamos el flag a 0 para que vuelva a mostrar el menu del usuario
 								opMenuUsuario = "0"
@@ -362,7 +402,7 @@ func main() {
 						if jis.Valido == true {
 							mensajeMenuPrincipal = "[INFO] Registro de usuario realizado correctamente!\n"
 						} else {
-							mensajeErrorRegistro = "[ERROR] " + jis.Mensaje + "\n"
+							mensajeErrorRegistro = "[INFO] " + jis.Mensaje + "\n"
 							//opMenuPrincipal = "2" // Mostramos el registro otra vez
 						}
 						limpiarPantallaWindows()

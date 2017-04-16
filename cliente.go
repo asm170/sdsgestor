@@ -72,6 +72,7 @@ func main() {
 	var mensajeErrorRegistro string
 	var mensajeAdministracion string
 	var mensajeNuevaCuenta string
+	var mensajeBuscarCuenta string
 	/* creamos un cliente especial que no comprueba la validez de los certificados
 	esto es necesario por que usamos certificados autofirmados (para pruebas) */
 	tr := &http.Transport{
@@ -160,8 +161,60 @@ func main() {
 								limpiarPantallaWindows()
 								switch opMenuUsuario {
 								case "1":
-									fmt.Println("Buscar una cuenta")
-									mensajeAdministracion = ""
+									nombreCuenta := ""
+									var opRepetirBusqueda string
+									opRepetirBusqueda = "1"
+									for opRepetirBusqueda != "2" {
+										// Mostramos el menu del usuario
+										for len(nombreCuenta) == 0 {
+											limpiarPantallaWindows()
+											fmt.Println("+---------------------+")
+											fmt.Println("|  Buscar una cuenta  |")
+											fmt.Println("+---------------------+")
+											fmt.Printf(mensajeBuscarCuenta)
+											fmt.Printf("Estas logueado como: [%s] \n", usuario)
+											fmt.Print("Introduce el nombre de la cuenta que deseas buscar: ")
+											scanner.Scan()
+											nombreCuenta = scanner.Text()
+											if len(nombreCuenta) == 0 {
+												mensajeBuscarCuenta = "[ERROR] Introduce un nombre de cuenta para realizar la busqueda\n"
+											} else {
+												mensajeBuscarCuenta = ""
+											}
+										}
+										// Enviamos al servidor los datos para realizar la busqueda de cuenta
+										re := jsonBuscar{Usuario: usuario, Cuenta: nombreCuenta}
+										jsonBuscar, err := json.Marshal(&re)
+										chk(err)
+										r, err := client.Post("https://localhost:10441/buscar", "application/json", bytes.NewBuffer(jsonBuscar))
+										chk(err)
+										// Recogemos la respuesta del servidor y lo convertimos a JSON
+										decoder := json.NewDecoder(r.Body)
+										var jr jsonResultado
+										decoder.Decode(&jr)
+										if jr.Encontrado == false {
+											mensajeBuscarCuenta = "[INFO] No existe ninguna cuenta con ese nombre\n"
+										}
+										limpiarPantallaWindows()
+										fmt.Println("+---------------------+")
+										fmt.Println("|  Buscar una cuenta  |")
+										fmt.Println("+---------------------+")
+										fmt.Printf(mensajeBuscarCuenta)
+										fmt.Printf("Estas logueado como: [%s] \n", usuario)
+										// Mostramos la cuenta descifrada
+										if jr.Encontrado == true {
+											fmt.Printf("Cuenta:		[%s] \n", jr.Cuenta)
+											fmt.Printf("Password:	[%s]\n", decrypt([]byte(decode64(jr.Password)), passAES))
+										}
+										// Le preguntamos al usuario si desea realizar otra busqueda
+										fmt.Println("\nDeseas realizar otra busqueda? ")
+										fmt.Println("[1] Si")
+										fmt.Println("[2] No")
+										scanner.Scan()
+										opRepetirBusqueda = scanner.Text()
+										nombreCuenta = ""
+										mensajeBuscarCuenta = ""
+									}
 								case "2":
 									nombreCuenta := ""
 									var opAleatoria string

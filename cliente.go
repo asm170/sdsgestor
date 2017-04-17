@@ -13,11 +13,49 @@ import (
 	"time"
 )
 
+//	Caracteres que formaran parte de la contraseña aleatoria
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "¡!¿?$%&@*+-_"
 
-var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+//	Struct que tendra los datos del usuario para la tarea de login
+type jsonIdentificacion struct {
+	Usuario  string
+	Password string
+}
 
+//	Struct que tendra la respuesta del servidor
+type jsonIdentificacionServidor struct {
+	Valido  bool
+	Mensaje string
+}
+
+//	Struct que se usara para realizar la busqueda de una cuenta
+type jsonBuscar struct {
+	Usuario string
+	Cuenta  string
+}
+
+//	Struct que tendra la respuesta del servidor en la tarea de busqueda de una cuenta
+type jsonResultado struct {
+	Encontrado bool
+	Cuenta     string
+	Password   string
+}
+
+//	Struct que tendra los datos para añadir una nueva cuenta
+type jsonNewPass struct {
+	Usuario  string
+	Cuenta   string
+	Password string
+}
+
+/*
+	Funcion que creara una cadena de caracteres de forma aleatoria
+	Parametros:
+	length: int -> Longitud de la cadena
+	charset: string -> Caracteres que formaran la cadena
+*/
 func randomPassword(length int, charset string) string {
+	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, length)
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
@@ -25,39 +63,38 @@ func randomPassword(length int, charset string) string {
 	return string(b)
 }
 
-type jsonIdentificacion struct {
-	Usuario  string
-	Password string
-}
-
-type jsonIdentificacionServidor struct {
-	Valido  bool
-	Mensaje string
-}
-
-type jsonBuscar struct {
-	Usuario string
-	Cuenta  string
-}
-
-type jsonResultado struct {
-	Encontrado bool
-	Cuenta     string
-	Password   string
-}
-
-type jsonNewPass struct {
-	Usuario  string
-	Cuenta   string
-	Password string
-}
-
+//	Funcion que limpiara la consola utilizando el comando 'cls' de windows
 func limpiarPantallaWindows() {
 	cmd := exec.Command("cmd", "/c", "cls")
 	cmd.Stdout = os.Stdout
 	cmd.Run()
 }
 
+/*
+	Funcion que enviara los datos al servidor
+	Parametros:
+	ruta : string -> Ruta del servidor
+	datos : interface{} -> JSON con los datos del cliente
+*/
+func send(ruta string, datos interface{}) *json.Decoder {
+	//	Creamos un cliente especial que no comprueba la validez de los certificados
+	//	esto es necesario por que usamos certificados autofirmados (para pruebas)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+	datosJSON, err := json.Marshal(&datos)
+	chk(err)
+	// Enviamos al servidor los datos del cliente mediante POST
+	r, err := client.Post("https://localhost:10441/"+ruta, "application/json", bytes.NewBuffer(datosJSON))
+	chk(err)
+	// Recogemos la respuesta del servidor y lo convertimos a JSON
+	decoder := json.NewDecoder(r.Body)
+
+	return decoder
+}
+
+// Funcion principal
 func main() {
 	var opMenuPrincipal string
 	var opMenuUsuario string
@@ -74,12 +111,7 @@ func main() {
 	var mensajeNuevaCuenta string
 	var mensajeBuscarCuenta string
 	var mensajeEliminarCuenta string
-	/* creamos un cliente especial que no comprueba la validez de los certificados
-	esto es necesario por que usamos certificados autofirmados (para pruebas) */
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: tr}
+
 	limpiarPantallaWindows()
 	opMenuPrincipal = "0"
 	scanner := bufio.NewScanner(os.Stdin)
@@ -118,16 +150,10 @@ func main() {
 					// Partimos el SHA3 generado
 					passSHA3 := passLoginSHA3[0:32]
 					passAES = passLoginSHA3[32:64]
-					//fmt.Printf("[DEBUG]	usuario	[%s]	password	[%s] \n", usuario, encode64(passSHA3))
 					// Convertimos a JSON los datos que le enviaremos al servidor
-					re := jsonIdentificacion{Usuario: usuario, Password: encode64(passSHA3)}
-					jsonIdentificacion, err := json.Marshal(&re)
-					chk(err)
-					// Enviamos al servidor los datos de registro mediante POST
-					r, err := client.Post("https://localhost:10441/login", "application/json", bytes.NewBuffer(jsonIdentificacion))
-					chk(err)
-					// Recogemos la respuesta del servidor y lo convertimos a JSON
-					decoder := json.NewDecoder(r.Body)
+					datosJSON := jsonIdentificacion{Usuario: usuario, Password: encode64(passSHA3)}
+					// Enviamos al servidor los datos
+					decoder := send("login", datosJSON)
 					var jis jsonIdentificacionServidor
 					decoder.Decode(&jis)
 					/*
@@ -184,13 +210,9 @@ func main() {
 											}
 										}
 										// Enviamos al servidor los datos para realizar la busqueda de cuenta
-										re := jsonBuscar{Usuario: usuario, Cuenta: nombreCuenta}
-										jsonBuscar, err := json.Marshal(&re)
-										chk(err)
-										r, err := client.Post("https://localhost:10441/buscar", "application/json", bytes.NewBuffer(jsonBuscar))
-										chk(err)
-										// Recogemos la respuesta del servidor y lo convertimos a JSON
-										decoder := json.NewDecoder(r.Body)
+										datosJSON := jsonBuscar{Usuario: usuario, Cuenta: nombreCuenta}
+										// Enviamos al servidor los datos
+										decoder := send("buscar", datosJSON)
 										var jr jsonResultado
 										decoder.Decode(&jr)
 										if jr.Encontrado == false {
@@ -280,18 +302,9 @@ func main() {
 										}
 									}
 									// Ciframos con AES
-									re := jsonNewPass{Usuario: usuario, Cuenta: nombreCuenta, Password: encode64(encrypt([]byte(passCuenta), passAES))}
-									jsonNewPass, err := json.Marshal(&re)
-									chk(err)
-									//encriptado := encrypt([]byte(passCuenta), passAES)
-									//fmt.Printf("[DEBUG]	[ENCRYPT]	Usuario:	[%s]	Cuenta:	[%s]	Password:	[%s]\n", usuario, nombreCuenta, encode64(encrypt([]byte(passCuenta), passAES)))
-									//fmt.Printf("[DEBUG]	[DECRYPT]	Usuario:	[%s]	Cuenta:	[%s]	Password:	[%s]\n", usuario, nombreCuenta, decrypt([]byte(encriptado), passAES))
-									// Enviamos al servidor los datos de registro mediante POST
-									r, err := client.Post("https://localhost:10441/add", "application/json", bytes.NewBuffer(jsonNewPass))
-									chk(err)
-									// Recogemos la respuesta del servidor y lo convertimos a JSON
-									decoder := json.NewDecoder(r.Body)
-									//var jis jsonIdentificacionServidor
+									datosJSON := jsonNewPass{Usuario: usuario, Cuenta: nombreCuenta, Password: encode64(encrypt([]byte(passCuenta), passAES))}
+									// Enviamos al servidor los datos
+									decoder := send("add", datosJSON)
 									decoder.Decode(&jis)
 									// Comprobamos la respuesta del servidor
 									if jis.Valido == true {
@@ -329,13 +342,9 @@ func main() {
 									opEliminar = scanner.Text()
 									if opEliminar == "1" {
 										// Enviamos al servidor los datos para realizar el borrado de la cuenta
-										re := jsonBuscar{Usuario: usuario, Cuenta: nombreCuenta}
-										jsonBuscar, err := json.Marshal(&re)
-										chk(err)
-										r, err := client.Post("https://localhost:10441/delete", "application/json", bytes.NewBuffer(jsonBuscar))
-										chk(err)
-										// Recogemos la respuesta del servidor y lo convertimos a JSON
-										decoder := json.NewDecoder(r.Body)
+										datosJSON := jsonBuscar{Usuario: usuario, Cuenta: nombreCuenta}
+										// Enviamos al servidor los datos
+										decoder := send("delete", datosJSON)
 										//var jis jsonIdentificacionServidor
 										decoder.Decode(&jis)
 										if jis.Valido == true {
@@ -388,14 +397,9 @@ func main() {
 						// primera parte se la enviamos al servidor
 						parteUnoPassRegistroSHA3 := passRegistroSHA3[0:32]
 						// Convertimos a JSON los datos que le enviaremos al servidor
-						re := jsonIdentificacion{Usuario: usuario, Password: encode64(parteUnoPassRegistroSHA3)}
-						jsonIdentificacion, err := json.Marshal(&re)
-						chk(err)
-						// Enviamos al servidor los datos de registro mediante POST
-						r, err := client.Post("https://localhost:10441/registrar", "application/json", bytes.NewBuffer(jsonIdentificacion))
-						chk(err)
-						// Recogemos la respuesta del servidor y lo convertimos a JSON
-						decoder := json.NewDecoder(r.Body)
+						datosJSON := jsonIdentificacion{Usuario: usuario, Password: encode64(parteUnoPassRegistroSHA3)}
+						// Enviamos al servidor los datos
+						decoder := send("registrar", datosJSON)
 						var jis jsonIdentificacionServidor
 						decoder.Decode(&jis)
 						// Comprobamos la respuesta del servidor

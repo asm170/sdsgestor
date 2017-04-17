@@ -74,7 +74,7 @@ func limpiarPantallaWindows() {
 	Funcion que enviara los datos al servidor
 	Parametros:
 	ruta : string -> Ruta del servidor
-	datos : interface{} -> JSON con los datos del cliente
+	datos : interface{} -> Struct con los datos del cliente
 */
 func send(ruta string, datos interface{}) *json.Decoder {
 	//	Creamos un cliente especial que no comprueba la validez de los certificados
@@ -94,8 +94,117 @@ func send(ruta string, datos interface{}) *json.Decoder {
 	return decoder
 }
 
+func menuRegistroUsuario(mensajeMenuRegistro string) (string, string, string) {
+	// Variables para el registro de usuario
+	var usuario string
+	var passRegistro string
+	var repitePassRegistro string
+	// Mensajes de INFO/ERROR
+	//var mensajeMenuRegistro string
+	var mensajeMenuPrincipal string
+	// Operacion del menu principal
+	var opMenuPrincipal string
+	// JSON que recibiremos del servidor
+	var jis jsonIdentificacionServidor
+	scanner := bufio.NewScanner(os.Stdin)
+	// Limpiamos la terminal y mostramos el menu
+	limpiarPantallaWindows()
+	fmt.Println("+---------------------------------------------------+")
+	fmt.Println("|  Introduce tus datos de usuario para registrarte  |")
+	fmt.Println("+---------------------------------------------------+")
+	fmt.Printf(mensajeMenuRegistro)
+	// Solicitamos los datos al usuario
+	fmt.Print("Nombre de usuario: ")
+	scanner.Scan()
+	usuario = scanner.Text()
+	fmt.Print("Password: ")
+	scanner.Scan()
+	passRegistro = scanner.Text()
+	fmt.Print("Repite el password: ")
+	scanner.Scan()
+	repitePassRegistro = scanner.Text()
+	// Comprobamos que el usuario ha introducido correctamente los datos
+	if len(usuario) > 0 && len(passRegistro) > 0 && len(repitePassRegistro) > 0 {
+		if passRegistro == repitePassRegistro {
+			// Resumimos en SHA3 el password
+			passRegistroSHA3 := hashSha512(passRegistro)
+			// Partimos el resumen en dos partes iguales y la
+			// primera parte se la enviamos al servidor
+			parteUnoPassRegistroSHA3 := passRegistroSHA3[0:32]
+			// Convertimos a JSON los datos que le enviaremos al servidor
+			datosJSON := jsonIdentificacion{Usuario: usuario, Password: encode64(parteUnoPassRegistroSHA3)}
+			// Enviamos al servidor los datos
+			decoder := send("registrar", datosJSON)
+			decoder.Decode(&jis)
+			// Comprobamos la respuesta del servidor
+			if jis.Valido == true {
+				mensajeMenuPrincipal = "[INFO] Registro de usuario realizado correctamente!\n"
+				opMenuPrincipal = "0"
+				mensajeMenuRegistro = ""
+			} else {
+				mensajeMenuRegistro = "[ERROR] " + jis.Mensaje + "\n"
+				// Mostramos el registro otra vez
+				opMenuPrincipal = "2"
+			}
+			limpiarPantallaWindows()
+		} else {
+			mensajeMenuRegistro = "[ERROR] Los password no coinciden\n"
+			// Mostramos el registro otra vez
+			opMenuPrincipal = "2"
+		}
+	} else {
+		mensajeMenuRegistro = "[ERROR] Te has dejado campos sin rellenar\n"
+		// Mostramos el registro otra vez
+		opMenuPrincipal = "2"
+	}
+
+	return opMenuPrincipal, mensajeMenuPrincipal, mensajeMenuRegistro
+}
+
 // Funcion principal
 func main() {
+	// Opcion elegida del menu principal
+	var opMenuPrincipal = "0"
+	// Mensajes de INFO/ERROR en los menus
+	var mensajeMenuPrincipal string
+	var mensajeMenuRegistro string
+
+	scanner := bufio.NewScanner(os.Stdin)
+
+	for opMenuPrincipal != "3" {
+		limpiarPantallaWindows()
+		if opMenuPrincipal == "0" {
+			fmt.Println("+-----------------------------------------+")
+			fmt.Println("|  Bienvenido a tu Gestor de Contraseñas! |")
+			fmt.Println("+-----------------------------------------+")
+			fmt.Printf(mensajeMenuPrincipal)
+			fmt.Println("[1] Entrar")
+			fmt.Println("[2] Registrate")
+			fmt.Println("[3] Salir")
+			fmt.Print("Elige una opcion: ")
+			scanner.Scan()
+			opMenuPrincipal = scanner.Text()
+			if len(opMenuPrincipal) != 1 {
+				opMenuPrincipal = "0"
+			}
+		}
+		//	Se mostrara el menu hasta que el usuario elija la opcion 'Salir'
+		if opMenuPrincipal != "3" {
+			mensajeMenuPrincipal = ""
+			switch opMenuPrincipal {
+			case "1": //	LOGIN DE USUARIO
+				// Activamos el flag para que vuelva al menu principal
+				opMenuPrincipal = "0"
+			case "2": //	REGISTRO DE USUARIO
+				opMenuPrincipal, mensajeMenuPrincipal, mensajeMenuRegistro = menuRegistroUsuario(mensajeMenuRegistro)
+				//fmt.Printf("[DEBUG]	opMenuPrincipal:	[%s]	mensajeMenuPrincipal:	[%s]	mensajeMenuRegistro:	[%s]\n", opMenuPrincipal, mensajeMenuPrincipal, mensajeMenuRegistro)
+			}
+		}
+	}
+}
+
+// Funcion principal
+func mainOld() {
 	var opMenuPrincipal string
 	var opMenuUsuario string
 	var usuario string

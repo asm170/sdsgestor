@@ -14,7 +14,13 @@ import (
 	"time"
 )
 
-var coleccion map[string]jsonStruct
+var coleccion map[string]jsonUsuario
+
+type jsonUsuario struct {
+	Password []byte
+	Salt     []byte
+	Cuentas  map[string][]byte
+}
 
 type jsonIdentificacion struct {
 	Usuario  string
@@ -43,63 +49,28 @@ type jsonNewPass struct {
 	Password string
 }
 
-func handler(w http.ResponseWriter, req *http.Request) {
-	req.ParseForm()                              // es necesario parsear el formulario
-	w.Header().Set("Content-Type", "text/plain") // cabecera estándar
-
-	//login := req.Form.Get("Usuario")
-	//pass := req.Form.Get("Password")
-
-	decoder := json.NewDecoder(req.Body)
-	var j jsonStruct
-	decoder.Decode(&j)
-
-	coleccion = make(map[string]jsonStruct)
-	coleccion["login1"] = j
-
-	// Create a file for IO
-	encodeFile, err := os.Create("login.gob")
-	if err != nil {
-		panic(err)
-	}
-
-	// Since this is a binary format large parts of it will be unreadable
-	encoder := gob.NewEncoder(encodeFile)
-
-	// Write to the file
-	if err := encoder.Encode(coleccion); err != nil {
-		response(w, false, "Error")
-		panic(err)
-	}
-
-	fmt.Println(coleccion["login1"].Usuario)
-	response(w, true, "Texto enviado correctamente")
-	encodeFile.Close()
-}
-
-func chk(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
 // respuesta del servidor
 type resp struct {
 	Ok  bool   // true -> correcto, false -> error
 	Msg string // mensaje adicional
 }
 
-type jsonStruct struct {
+/*type jsonStruct struct {
 	Usuario  string
 	Password string
-}
+}*/
 
 // función para escribir una respuesta del servidor
-func response(w io.Writer, ok bool, msg string) {
+/*func response(w io.Writer, ok bool, msg string) {
 	r := resp{Ok: ok, Msg: msg}    // formateamos respuesta
 	rJSON, err := json.Marshal(&r) // codificamos en JSON
 	chk(err)                       // comprobamos error
 	w.Write(rJSON)                 // escribimos el JSON resultante
+}*/
+func response(w io.Writer, r interface{}) {
+	rJSON, err := json.Marshal(&r)
+	chk(err)
+	w.Write(rJSON)
 }
 
 func main() {
@@ -116,11 +87,12 @@ func main() {
 	stopChan := make(chan os.Signal)
 	signal.Notify(stopChan, os.Interrupt)
 
+	//Asignar handlers a rutas
 	mux := http.NewServeMux()
-	mux.Handle("/", http.HandlerFunc(handler))
+	mux.Handle("/registrar", http.HandlerFunc(handlerRegistrar))
 
 	srv := &http.Server{Addr: ":10441", Handler: mux}
-
+	log.Println("Servidor en marcha")
 	go func() {
 		if err := srv.ListenAndServeTLS("cert.pem", "key.pem"); err != nil {
 			log.Printf("listen: %s\n", err)
@@ -136,4 +108,57 @@ func main() {
 	srv.Shutdown(ctx)
 
 	log.Println("Servidor detenido correctamente")
+}
+
+func handlerRegistrar(w http.ResponseWriter, req *http.Request) {
+	req.ParseForm()                              // es necesario parsear el formulario
+	w.Header().Set("Content-Type", "text/plain") // cabecera estándar
+
+	decoder := json.NewDecoder(req.Body)
+	var j jsonIdentificacion
+	var respuesta jsonIdentificacionServidor
+	respuesta.Valido = true
+	decoder.Decode(&j)
+	var newUser jsonUsuario
+	newUser.Password = []byte(j.Password)
+	coleccion = make(map[string]jsonUsuario)
+
+	var encodeFile *os.File
+
+	if _, err := os.Stat("bd.gob"); os.IsNotExist(err) {
+		// Create a file for IO
+		encodeFile, err = os.Create("bd.gob")
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		encodeFile, err = os.OpenFile("bd.gob", os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+		deserializer := gob.NewDecoder(encodeFile)
+		deserializer.Decode(&coleccion)
+	}
+
+	if _, ok := coleccion[j.Usuario]; !ok {
+		coleccion[j.Usuario] = newUser
+
+		// Since this is a binary format large parts of it will be unreadable
+		serializer := gob.NewEncoder(encodeFile)
+
+		// Write to the file
+		if err := serializer.Encode(coleccion); err != nil {
+			respuesta.Valido = false
+			respuesta.Mensaje = "Fallo en el servidor"
+			response(w, respuesta)
+			panic(err)
+		}
+	} else {
+		respuesta.Valido = false
+		respuesta.Mensaje = "Nombre ya en uso, por favor escoja otro"
+	}
+
+	fmt.Println(respuesta.Mensaje)
+	response(w, respuesta)
+	encodeFile.Close()
 }

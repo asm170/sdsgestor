@@ -92,7 +92,6 @@ func send(ruta string, datos interface{}) *json.Decoder {
 	chk(err)
 	// Recogemos la respuesta del servidor y lo convertimos a JSON
 	decoder := json.NewDecoder(r.Body)
-
 	return decoder
 }
 

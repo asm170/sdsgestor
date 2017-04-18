@@ -348,8 +348,111 @@ func añadirCuenta(usuario string, passAES []byte) string {
 	return mensajeAdministracion
 }
 
-func modificarCuenta(usuario string, passAES []byte) {
+/*
+	Funcion que modificara una cuenta
+	Parametros entrada:
+		usuario : string -> Nombre del usuario que esta logueado
+		passAES : []byte -> Clave AES para cifrar y descifrar
+	Devuelve:
+		mensajeAdministracion : string -> Mensaje de INFO/ERROR del menu de administracion
+*/
+func modificarCuenta(usuario string, passAES []byte) string {
+	// Mensajes de INFO/ERROR
+	var mensajeModificarCuenta string
+	var mensajeAdministracion string
+	// Nombre de la cuenta que se quiere eliminar
+	var nombreCuenta = ""
+	// Flag que permitira al usuario obtener un password aleatorio
+	var opAleatoria string
+	var passCuenta string
+	// Struct que nos devolvera el servidor
+	var jr jsonResultado
+	var jis jsonIdentificacionServidor
+	scanner := bufio.NewScanner(os.Stdin)
+	// Mostramos el menu del usuario
+	for len(nombreCuenta) == 0 {
+		limpiarPantallaWindows()
+		fmt.Println("+------------------------+")
+		fmt.Println("|  Modificar una cuenta  |")
+		fmt.Println("+------------------------+")
+		fmt.Printf(mensajeModificarCuenta)
+		fmt.Printf("Estas logueado como: [%s] \n", usuario)
+		fmt.Print("Introduce el nombre de la cuenta (Ejemplo: facebook): ")
+		scanner.Scan()
+		nombreCuenta = scanner.Text()
+		if len(nombreCuenta) == 0 {
+			mensajeModificarCuenta = "[ERROR] Debes introducir un nombre para la nueva cuenta\n"
+		} else {
+			// Enviamos al servidor los datos para realizar la busqueda de cuenta
+			datosJSON := jsonBuscar{Usuario: usuario, Cuenta: nombreCuenta}
+			// Enviamos al servidor los datos
+			decoder := send("buscar", datosJSON)
+			decoder.Decode(&jr)
+			if jr.Encontrado == true {
+				mensajeModificarCuenta = ""
+			} else {
+				mensajeModificarCuenta = "[INFO] No existe ninguna cuenta con ese nombre\n"
+				nombreCuenta = ""
+			}
+		}
+	}
+	for opAleatoria != "1" && opAleatoria != "2" {
+		limpiarPantallaWindows()
+		fmt.Println("+------------------------+")
+		fmt.Println("|  Modificar una cuenta  |")
+		fmt.Println("+------------------------+")
+		fmt.Printf(mensajeModificarCuenta)
+		fmt.Printf("Estas logueado como: [%s] \n", usuario)
+		fmt.Println("Deseas generar aleatoriamente el password para la cuenta [" + nombreCuenta + "]? ")
+		fmt.Println("[1] Si")
+		fmt.Println("[2] No")
+		fmt.Printf("Opcion: ")
+		scanner.Scan()
+		opAleatoria = scanner.Text()
+	}
+	// Password aleatorio
+	if opAleatoria == "1" {
+		// Generamos el password de forma aleatoriamente
+		passCuenta = randomPassword(15, charset)
+		//fmt.Printf("[DEBUG]	[random password]	passCuenta:	[%s]\n", passCuenta)
+	} else { // Password manual
+		passCuenta = ""
+		repitePassCuenta := ""
+		for len(passCuenta) == 0 || len(repitePassCuenta) == 0 || passCuenta != repitePassCuenta {
+			limpiarPantallaWindows()
+			fmt.Println("+------------------------+")
+			fmt.Println("|  Modificar una cuenta  |")
+			fmt.Println("+------------------------+")
+			fmt.Printf(mensajeModificarCuenta)
+			fmt.Printf("Estas logueado como: [%s] \n", usuario)
+			fmt.Print("Password: ")
+			scanner.Scan()
+			passCuenta = scanner.Text()
+			fmt.Print("Repite el password: ")
+			scanner.Scan()
+			repitePassCuenta = scanner.Text()
+			if len(passCuenta) == 0 || len(repitePassCuenta) == 0 {
+				mensajeModificarCuenta = "[ERROR] Debes introducir un password\n"
+			} else if passCuenta != repitePassCuenta {
+				mensajeModificarCuenta = "[ERROR] Los password deben coincidir\n"
+			} else {
+				mensajeModificarCuenta = ""
+			}
+		}
+	}
+	// Ciframos con AES
+	datosJSON := jsonNewPass{Usuario: usuario, Cuenta: nombreCuenta, Password: encode64(encrypt([]byte(passCuenta), passAES))}
+	// Enviamos al servidor los datos
+	decoder := send("modify", datosJSON)
+	decoder.Decode(&jis)
+	// Comprobamos la respuesta del servidor
+	if jis.Valido == true {
+		mensajeAdministracion = "[INFO] La cuenta se ha modificado correctamente!\n"
+	} else {
+		mensajeAdministracion = "[INFO] " + jis.Mensaje + "\n"
+	}
 
+	return mensajeAdministracion
 }
 
 /*
@@ -463,7 +566,7 @@ func menuUsuario(usuario string, passAES []byte) string {
 			case "2": //	AÑADIR CUENTA
 				mensajeAdministracion = añadirCuenta(usuario, passAES)
 			case "3": //	MODIFICAR CUENTA
-				modificarCuenta(usuario, passAES)
+				mensajeAdministracion = modificarCuenta(usuario, passAES)
 			case "4": //	ELIMINAR CUENTA
 				mensajeAdministracion = eliminarCuenta(usuario)
 			}

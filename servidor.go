@@ -61,12 +61,6 @@ type resp struct {
 }*/
 
 // función para escribir una respuesta del servidor
-/*func response(w io.Writer, ok bool, msg string) {
-	r := resp{Ok: ok, Msg: msg}    // formateamos respuesta
-	rJSON, err := json.Marshal(&r) // codificamos en JSON
-	chk(err)                       // comprobamos error
-	w.Write(rJSON)                 // escribimos el JSON resultante
-}*/
 func response(w io.Writer, r interface{}) {
 	rJSON, err := json.Marshal(&r)
 	chk(err)

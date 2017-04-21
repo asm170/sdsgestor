@@ -88,6 +88,8 @@ func main() {
 	mux.Handle("/login", http.HandlerFunc(handlerLogin))
 	mux.Handle("/buscar", http.HandlerFunc(handlerBuscar))
 	mux.Handle("/add", http.HandlerFunc(handlerAdd))
+	mux.Handle("/modify", http.HandlerFunc(handlerModify))
+	mux.Handle("/delete", http.HandlerFunc(handlerDelete))
 
 	srv := &http.Server{Addr: ":10441", Handler: mux}
 	fmt.Print("")
@@ -269,6 +271,92 @@ func handlerAdd(w http.ResponseWriter, req *http.Request) {
 		} else {
 			respuesta.Valido = false
 			respuesta.Mensaje = "Cuenta existente, para modificar la contraseña vaya a la sección modificar contraseña"
+		}
+	}
+	response(w, respuesta)
+	encodeFile.Close()
+}
+
+func handlerModify(w http.ResponseWriter, req *http.Request) {
+	req.ParseForm()                              // es necesario parsear el formulario
+	w.Header().Set("Content-Type", "text/plain") // cabecera estándar
+
+	decoder := json.NewDecoder(req.Body)
+	var j jsonNewPass
+	var respuesta jsonIdentificacionServidor
+	respuesta.Valido = false
+	decoder.Decode(&j)
+
+	var encodeFile *os.File
+
+	if _, err := os.Stat("bd.gob"); !os.IsNotExist(err) {
+		encodeFile, err = os.OpenFile("bd.gob", os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+		deserializer := gob.NewDecoder(encodeFile)
+		deserializer.Decode(&coleccion)
+
+		if _, ok := coleccion[j.Usuario].Cuentas[j.Cuenta]; ok {
+			coleccion[j.Usuario].Cuentas[j.Cuenta] = []byte(j.Password)
+			encodeFile, _ = os.OpenFile("bd.gob", os.O_RDWR, 0666)
+			serializer := gob.NewEncoder(encodeFile)
+
+			// Write to the file
+			if err := serializer.Encode(coleccion); err != nil {
+				respuesta.Valido = false
+				respuesta.Mensaje = "Fallo en el servidor"
+
+				panic(err)
+			} else {
+				respuesta.Valido = true
+			}
+		} else {
+			respuesta.Valido = false
+			respuesta.Mensaje = "Cuenta no existente, para crear la cuenta y contraseña vaya a la sección añadir contraseña"
+		}
+	}
+	response(w, respuesta)
+	encodeFile.Close()
+}
+
+func handlerDelete(w http.ResponseWriter, req *http.Request) {
+	req.ParseForm()                              // es necesario parsear el formulario
+	w.Header().Set("Content-Type", "text/plain") // cabecera estándar
+
+	decoder := json.NewDecoder(req.Body)
+	var j jsonNewPass
+	var respuesta jsonIdentificacionServidor
+	respuesta.Valido = false
+	decoder.Decode(&j)
+
+	var encodeFile *os.File
+
+	if _, err := os.Stat("bd.gob"); !os.IsNotExist(err) {
+		encodeFile, err = os.OpenFile("bd.gob", os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+		deserializer := gob.NewDecoder(encodeFile)
+		deserializer.Decode(&coleccion)
+
+		if _, ok := coleccion[j.Usuario].Cuentas[j.Cuenta]; ok {
+			delete(coleccion[j.Usuario].Cuentas, j.Cuenta)
+			encodeFile, _ = os.OpenFile("bd.gob", os.O_RDWR, 0666)
+			serializer := gob.NewEncoder(encodeFile)
+
+			// Write to the file
+			if err := serializer.Encode(coleccion); err != nil {
+				respuesta.Valido = false
+				respuesta.Mensaje = "Fallo en el servidor"
+
+				panic(err)
+			} else {
+				respuesta.Valido = true
+			}
+		} else {
+			respuesta.Valido = false
+			respuesta.Mensaje = "Cuenta no existente"
 		}
 	}
 	response(w, respuesta)

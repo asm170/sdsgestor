@@ -52,7 +52,7 @@ func decrypt(data, key []byte) (out []byte) {
 }
 
 // función para hashear con scrypt
-func hashScrypt(data string, salt []byte, bytes int) (out []byte) {
+func hashScrypt(data []byte, salt []byte, bytes int) (out []byte) {
 	out, _ = scrypt.Key([]byte(data), salt, 16384, 8, 1, bytes)
 	return
 }

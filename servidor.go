@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/gob"
 	"encoding/json"
@@ -84,8 +85,12 @@ func main() {
 	//Asignar handlers a rutas
 	mux := http.NewServeMux()
 	mux.Handle("/registrar", http.HandlerFunc(handlerRegistrar))
+	mux.Handle("/login", http.HandlerFunc(handlerLogin))
+	mux.Handle("/buscar", http.HandlerFunc(handlerBuscar))
+	mux.Handle("/add", http.HandlerFunc(handlerAdd))
 
 	srv := &http.Server{Addr: ":10441", Handler: mux}
+	fmt.Print("")
 	log.Println("Servidor en marcha")
 	go func() {
 		if err := srv.ListenAndServeTLS("cert.pem", "key.pem"); err != nil {
@@ -135,9 +140,14 @@ func handlerRegistrar(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if _, ok := coleccion[j.Usuario]; !ok {
+
+		newUser.Salt = makeSalt()
+		newUser.Password = hashScrypt(newUser.Password, newUser.Salt, 64)
+		newUser.Cuentas = make(map[string][]byte)
 		coleccion[j.Usuario] = newUser
 
 		// Since this is a binary format large parts of it will be unreadable
+		encodeFile, _ = os.OpenFile("bd.gob", os.O_RDWR, 0666)
 		serializer := gob.NewEncoder(encodeFile)
 
 		// Write to the file
@@ -151,8 +161,116 @@ func handlerRegistrar(w http.ResponseWriter, req *http.Request) {
 		respuesta.Valido = false
 		respuesta.Mensaje = "Nombre ya en uso, por favor escoja otro"
 	}
+	encodeFile.Close()
+	response(w, respuesta)
+}
 
-	fmt.Println(respuesta.Mensaje)
+func handlerLogin(w http.ResponseWriter, req *http.Request) {
+	req.ParseForm()                              // es necesario parsear el formulario
+	w.Header().Set("Content-Type", "text/plain") // cabecera estándar
+
+	decoder := json.NewDecoder(req.Body)
+	var j jsonIdentificacion
+	var respuesta jsonIdentificacionServidor
+	respuesta.Valido = false
+	decoder.Decode(&j)
+
+	var encodeFile *os.File
+
+	if _, err := os.Stat("bd.gob"); !os.IsNotExist(err) {
+		encodeFile, err = os.OpenFile("bd.gob", os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+		deserializer := gob.NewDecoder(encodeFile)
+		deserializer.Decode(&coleccion)
+
+		if _, ok := coleccion[j.Usuario]; ok {
+			pass := hashScrypt([]byte(j.Password), coleccion[j.Usuario].Salt, 64)
+			if bytes.Equal(coleccion[j.Usuario].Password, pass) {
+				respuesta.Valido = true
+			} else {
+				respuesta.Valido = false
+				respuesta.Mensaje = "Login incorrecto"
+			}
+		} else {
+			respuesta.Valido = false
+			respuesta.Mensaje = "Login incorrecto"
+		}
+	}
+	response(w, respuesta)
+	encodeFile.Close()
+}
+
+func handlerBuscar(w http.ResponseWriter, req *http.Request) {
+	req.ParseForm()                              // es necesario parsear el formulario
+	w.Header().Set("Content-Type", "text/plain") // cabecera estándar
+
+	decoder := json.NewDecoder(req.Body)
+	var j jsonBuscar
+	var respuesta jsonResultado
+	respuesta.Encontrado = false
+	decoder.Decode(&j)
+
+	var encodeFile *os.File
+
+	if _, err := os.Stat("bd.gob"); !os.IsNotExist(err) {
+		encodeFile, err = os.OpenFile("bd.gob", os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+		deserializer := gob.NewDecoder(encodeFile)
+		deserializer.Decode(&coleccion)
+
+		if _, ok := coleccion[j.Usuario].Cuentas[j.Cuenta]; ok {
+			respuesta.Encontrado = true
+			respuesta.Cuenta = j.Cuenta
+			respuesta.Password = string(coleccion[j.Usuario].Cuentas[j.Cuenta])
+		}
+	}
+	response(w, respuesta)
+	encodeFile.Close()
+}
+
+func handlerAdd(w http.ResponseWriter, req *http.Request) {
+	req.ParseForm()                              // es necesario parsear el formulario
+	w.Header().Set("Content-Type", "text/plain") // cabecera estándar
+
+	decoder := json.NewDecoder(req.Body)
+	var j jsonNewPass
+	var respuesta jsonIdentificacionServidor
+	respuesta.Valido = false
+	decoder.Decode(&j)
+
+	var encodeFile *os.File
+
+	if _, err := os.Stat("bd.gob"); !os.IsNotExist(err) {
+		encodeFile, err = os.OpenFile("bd.gob", os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+		deserializer := gob.NewDecoder(encodeFile)
+		deserializer.Decode(&coleccion)
+
+		if _, ok := coleccion[j.Usuario].Cuentas[j.Cuenta]; !ok {
+			coleccion[j.Usuario].Cuentas[j.Cuenta] = []byte(j.Password)
+			encodeFile, _ = os.OpenFile("bd.gob", os.O_RDWR, 0666)
+			serializer := gob.NewEncoder(encodeFile)
+
+			// Write to the file
+			if err := serializer.Encode(coleccion); err != nil {
+				respuesta.Valido = false
+				respuesta.Mensaje = "Fallo en el servidor"
+
+				panic(err)
+			} else {
+				respuesta.Valido = true
+			}
+		} else {
+			respuesta.Valido = false
+			respuesta.Mensaje = "Cuenta existente, para modificar la contraseña vaya a la sección modificar contraseña"
+		}
+	}
 	response(w, respuesta)
 	encodeFile.Close()
 }

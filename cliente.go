@@ -14,7 +14,7 @@ import (
 )
 
 //	Caracteres que formaran parte de la contraseña aleatoria
-const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "¡!¿?$%&@*+-_"
+const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "!?$%&@*+-_"
 
 //	Struct que tendra los datos del usuario para la tarea de login
 type jsonIdentificacion struct {
@@ -334,6 +334,7 @@ func añadirCuenta(usuario string, passAES []byte) string {
 	}
 	// Ciframos con AES
 	datosJSON := jsonNewPass{Usuario: usuario, Cuenta: nombreCuenta, Password: encode64(encrypt([]byte(passCuenta), passAES))}
+	//fmt.Printf("[DEBUG]	[enviado a servidor]	encode64(encrypt([]byte(passCuenta):	[%s]\n", datosJSON.Password)
 	// Enviamos al servidor los datos
 	decoder := send("add", datosJSON)
 	decoder.Decode(&jis)

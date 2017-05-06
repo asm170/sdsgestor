@@ -606,6 +606,7 @@ func menuLoginUsuario(mensajeLogin string) (string, string) {
 	fmt.Println("+----------------------------------------------+")
 	fmt.Printf(mensajeLogin)
 	fmt.Print("Nombre de usuario: ")
+
 	scanner.Scan()
 	usuario = scanner.Text()
 	fmt.Print("Password: ")

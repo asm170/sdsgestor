@@ -10,7 +10,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"syscall"
 	"time"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 //	Caracteres que formaran parte de la contraseña aleatoria
@@ -46,6 +49,20 @@ type jsonNewPass struct {
 	Usuario  string
 	Cuenta   string
 	Password string
+}
+
+// Funcion que recogera el password introducido por
+// el Usuario pero sin mostrarlo por la pantalla
+// Devuelve:
+//	string : password del usuario en formato string
+func leePassword() string {
+	passLoginByte, err := terminal.ReadPassword(int(syscall.Stdin))
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return string(passLoginByte)
 }
 
 /*
@@ -127,11 +144,9 @@ func menuRegistroUsuario(mensajeMenuRegistro string) (string, string, string) {
 	scanner.Scan()
 	usuario = scanner.Text()
 	fmt.Print("Password: ")
-	scanner.Scan()
-	passRegistro = scanner.Text()
-	fmt.Print("Repite el password: ")
-	scanner.Scan()
-	repitePassRegistro = scanner.Text()
+	passRegistro = leePassword()
+	fmt.Print("\nRepite el password: ")
+	repitePassRegistro = leePassword()
 	// Comprobamos que el usuario ha introducido correctamente los datos
 	if len(usuario) > 0 && len(passRegistro) > 0 && len(repitePassRegistro) > 0 {
 		if passRegistro == repitePassRegistro {
@@ -318,11 +333,9 @@ func añadirCuenta(usuario string, passAES []byte) string {
 			fmt.Printf(mensajeNuevaCuenta)
 			fmt.Printf("Estas logueado como: [%s] \n", usuario)
 			fmt.Print("Password: ")
-			scanner.Scan()
-			passCuenta = scanner.Text()
-			fmt.Print("Repite el password: ")
-			scanner.Scan()
-			repitePassCuenta = scanner.Text()
+			passCuenta = leePassword()
+			fmt.Print("\nRepite el password: ")
+			repitePassCuenta = leePassword()
 			if len(passCuenta) == 0 || len(repitePassCuenta) == 0 {
 				mensajeNuevaCuenta = "[ERROR] Debes introducir un password\n"
 			} else if passCuenta != repitePassCuenta {
@@ -426,11 +439,9 @@ func modificarCuenta(usuario string, passAES []byte) string {
 			fmt.Printf(mensajeModificarCuenta)
 			fmt.Printf("Estas logueado como: [%s] \n", usuario)
 			fmt.Print("Password: ")
-			scanner.Scan()
-			passCuenta = scanner.Text()
+			passCuenta = leePassword()
 			fmt.Print("Repite el password: ")
-			scanner.Scan()
-			repitePassCuenta = scanner.Text()
+			repitePassCuenta = leePassword()
 			if len(passCuenta) == 0 || len(repitePassCuenta) == 0 {
 				mensajeModificarCuenta = "[ERROR] Debes introducir un password\n"
 			} else if passCuenta != repitePassCuenta {
@@ -610,8 +621,8 @@ func menuLoginUsuario(mensajeLogin string) (string, string) {
 	scanner.Scan()
 	usuario = scanner.Text()
 	fmt.Print("Password: ")
-	scanner.Scan()
-	passLogin = scanner.Text()
+	passLogin = leePassword()
+	//fmt.Println(string(pp))
 	// Comprobamos que el usuario ha introducido los datos correctamente
 	if len(usuario) > 0 && len(passLogin) > 0 {
 		// Resumimos el password con SHA3

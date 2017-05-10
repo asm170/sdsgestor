@@ -54,3 +54,12 @@ ruta /delete
 #### Cliente
 Envía jsonBuscar{Usuario:string, Cuenta:, Token:string}
 devuelve jsonIdentificacionServidor{Valido:bool, Mensaje:string}(reutilizamos por si hay algún error del servidor)
+
+
+
+memoria:
+	-Pequeña descripción de la aplicación
+	-Descripción de la seguridad utilizada
+		-Explicar funcionalidades 1 a 1
+			-Parte cliente detallada
+			-Parte servidor detallada

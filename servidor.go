@@ -21,6 +21,8 @@ type jsonUsuario struct {
 	Password []byte
 	Salt     []byte
 	Cuentas  map[string][]byte
+	Token    string
+	Codigo   string
 }
 
 // respuesta del servidor

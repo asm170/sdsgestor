@@ -20,36 +20,6 @@ import (
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "!?$%&@*+-_"
 
 //	Struct que tendra los datos del usuario para la tarea de login
-type jsonIdentificacion struct {
-	Usuario  string
-	Password string
-}
-
-//	Struct que tendra la respuesta del servidor
-type jsonIdentificacionServidor struct {
-	Valido  bool
-	Mensaje string
-}
-
-//	Struct que se usara para realizar la busqueda de una cuenta
-type jsonBuscar struct {
-	Usuario string
-	Cuenta  string
-}
-
-//	Struct que tendra la respuesta del servidor en la tarea de busqueda de una cuenta
-type jsonResultado struct {
-	Encontrado bool
-	Cuenta     string
-	Password   string
-}
-
-//	Struct que tendra los datos para añadir una nueva cuenta
-type jsonNewPass struct {
-	Usuario  string
-	Cuenta   string
-	Password string
-}
 
 // Funcion que recogera el password introducido por
 // el Usuario pero sin mostrarlo por la pantalla

@@ -68,3 +68,34 @@ func makeSalt() (out []byte) {
 	io.ReadFull(rand.Reader, out)
 	return
 }
+
+type jsonIdentificacion struct {
+	Usuario  string
+	Password string
+}
+
+//	Struct que tendra la respuesta del servidor
+type jsonIdentificacionServidor struct {
+	Valido  bool
+	Mensaje string
+}
+
+//	Struct que se usara para realizar la busqueda de una cuenta
+type jsonBuscar struct {
+	Usuario string
+	Cuenta  string
+}
+
+//	Struct que tendra la respuesta del servidor en la tarea de busqueda de una cuenta
+type jsonResultado struct {
+	Encontrado bool
+	Cuenta     string
+	Password   string
+}
+
+//	Struct que tendra los datos para añadir una nueva cuenta
+type jsonNewPass struct {
+	Usuario  string
+	Cuenta   string
+	Password string
+}

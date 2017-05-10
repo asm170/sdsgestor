@@ -23,33 +23,6 @@ type jsonUsuario struct {
 	Cuentas  map[string][]byte
 }
 
-type jsonIdentificacion struct {
-	Usuario  string
-	Password string
-}
-
-type jsonIdentificacionServidor struct {
-	Valido  bool
-	Mensaje string
-}
-
-type jsonBuscar struct {
-	Usuario string
-	Cuenta  string
-}
-
-type jsonResultado struct {
-	Encontrado bool
-	Cuenta     string
-	Password   string
-}
-
-type jsonNewPass struct {
-	Usuario  string
-	Cuenta   string
-	Password string
-}
-
 // respuesta del servidor
 type resp struct {
 	Ok  bool   // true -> correcto, false -> error

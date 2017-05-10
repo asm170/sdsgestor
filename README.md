@@ -23,6 +23,7 @@ ruta /loginCodigo
 #### Cliente
 recibe si ususario y contraseña son correctos y muestra para introducir clave
 envía código de identificación
+envía jsonCodigoIdentificacion{Codigo:string}
 #### Servidor
 borra código
 devuelve jsonIdentificacionServidor{Valido:bool, Mensaje:string, Token:string} 

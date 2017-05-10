@@ -84,6 +84,7 @@ type jsonIdentificacionServidor struct {
 type jsonBuscar struct {
 	Usuario string
 	Cuenta  string
+	Toekn   string
 }
 
 //	Struct que tendra la respuesta del servidor en la tarea de busqueda de una cuenta
@@ -91,6 +92,7 @@ type jsonResultado struct {
 	Encontrado bool
 	Cuenta     string
 	Password   string
+	Mensaje    string
 }
 
 //	Struct que tendra los datos para añadir una nueva cuenta
@@ -98,4 +100,9 @@ type jsonNewPass struct {
 	Usuario  string
 	Cuenta   string
 	Password string
+	Token    string
+}
+
+type jsonCodigoIdentificacion struct {
+	Codigo string
 }

@@ -84,7 +84,7 @@ type jsonIdentificacionServidor struct {
 type jsonBuscar struct {
 	Usuario string
 	Cuenta  string
-	Toekn   string
+	Token   string
 }
 
 //	Struct que tendra la respuesta del servidor en la tarea de busqueda de una cuenta

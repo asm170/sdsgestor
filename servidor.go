@@ -6,7 +6,8 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"httpscerts"
+	"github.com/kabukky/httpscerts"
+	. "github.com/mailjet/mailjet-apiv3-go"
 	"io"
 	"log"
 	"net/http"
@@ -43,6 +44,15 @@ func response(w io.Writer, r interface{}) {
 	w.Write(rJSON)
 }
 
+func randomPassword(length int, charset string) string {
+	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
 func main() {
 
 	err := httpscerts.Check("cert.pem", "key.pem")
@@ -65,6 +75,7 @@ func main() {
 	mux.Handle("/add", http.HandlerFunc(handlerAdd))
 	mux.Handle("/modify", http.HandlerFunc(handlerModify))
 	mux.Handle("/delete", http.HandlerFunc(handlerDelete))
+	mux.Handle("/confirmarlogin", http.HandlerFunc(handlerConfirmarLogin))
 
 	srv := &http.Server{Addr: ":10441", Handler: mux}
 	fmt.Print("")
@@ -161,10 +172,31 @@ func handlerLogin(w http.ResponseWriter, req *http.Request) {
 		}
 		deserializer := gob.NewDecoder(encodeFile)
 		deserializer.Decode(&coleccion)
-
+		codigo := randomPassword(5, "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
 		if _, ok := coleccion[j.Usuario]; ok {
 			pass := hashScrypt([]byte(j.Password), coleccion[j.Usuario].Salt, 64)
 			if bytes.Equal(coleccion[j.Usuario].Password, pass) {
+
+				myAPIkey := "59555f768951a44819acc29bd5fb340b"
+				myPrivAPIkey := "bb1420a18893759e81e3a494a3fb79d2"
+				mailjetClient := NewMailjetClient(myAPIkey, myPrivAPIkey)
+				email := &InfoSendMail{
+					FromEmail: "the_sapinyas@hotmail.com",
+					FromName:  "Equipo sdsgestor",
+					Subject:   "Código activación",
+					TextPart:  codigo,
+					Recipients: []Recipient{
+						Recipient{
+							Email: coleccion[j.Usuario],
+						},
+					},
+				}
+				res, err := mailjetClient.SendMail(email)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+
+				}
 				respuesta.Valido = true
 			} else {
 				respuesta.Valido = false
@@ -177,6 +209,10 @@ func handlerLogin(w http.ResponseWriter, req *http.Request) {
 	}
 	response(w, respuesta)
 	encodeFile.Close()
+}
+
+func handlerConfirmarLogin(w http.ResponseWriter, req *http.Request) {
+
 }
 
 func handlerBuscar(w http.ResponseWriter, req *http.Request) {

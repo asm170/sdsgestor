@@ -10,6 +10,7 @@ import (
 	. "github.com/mailjet/mailjet-apiv3-go"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -187,11 +188,11 @@ func handlerLogin(w http.ResponseWriter, req *http.Request) {
 					TextPart:  codigo,
 					Recipients: []Recipient{
 						Recipient{
-							Email: coleccion[j.Usuario],
+							Email: j.Usuario,
 						},
 					},
 				}
-				res, err := mailjetClient.SendMail(email)
+				_, err := mailjetClient.SendMail(email)
 				if err != nil {
 					fmt.Println(err)
 				} else {

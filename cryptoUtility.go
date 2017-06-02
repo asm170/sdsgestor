@@ -6,9 +6,8 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"encoding/base64"
-	"io"
-
 	"golang.org/x/crypto/scrypt"
+	"io"
 )
 
 // función para comprobar errores (ahorra escritura)
@@ -78,6 +77,7 @@ type jsonIdentificacion struct {
 type jsonIdentificacionServidor struct {
 	Valido  bool
 	Mensaje string
+	Token   string
 }
 
 //	Struct que se usara para realizar la busqueda de una cuenta
@@ -104,5 +104,6 @@ type jsonNewPass struct {
 }
 
 type jsonCodigoIdentificacion struct {
-	Codigo string
+	Codigo  string
+	Usuario string
 }

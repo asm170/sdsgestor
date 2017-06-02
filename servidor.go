@@ -18,6 +18,7 @@ import (
 )
 
 var coleccion map[string]jsonUsuario
+var codigos = make(map[string]string)
 
 type jsonUsuario struct {
 	Password []byte
@@ -67,6 +68,7 @@ func main() {
 
 	stopChan := make(chan os.Signal)
 	signal.Notify(stopChan, os.Interrupt)
+	//codigos := make(map[string]string)
 
 	//Asignar handlers a rutas
 	mux := http.NewServeMux()
@@ -173,11 +175,11 @@ func handlerLogin(w http.ResponseWriter, req *http.Request) {
 		}
 		deserializer := gob.NewDecoder(encodeFile)
 		deserializer.Decode(&coleccion)
-		codigo := randomPassword(5, "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
 		if _, ok := coleccion[j.Usuario]; ok {
 			pass := hashScrypt([]byte(j.Password), coleccion[j.Usuario].Salt, 64)
 			if bytes.Equal(coleccion[j.Usuario].Password, pass) {
-
+				codigo := randomPassword(5, "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
+				codigos[j.Usuario] = codigo
 				myAPIkey := "59555f768951a44819acc29bd5fb340b"
 				myPrivAPIkey := "bb1420a18893759e81e3a494a3fb79d2"
 				mailjetClient := NewMailjetClient(myAPIkey, myPrivAPIkey)
@@ -195,8 +197,6 @@ func handlerLogin(w http.ResponseWriter, req *http.Request) {
 				_, err := mailjetClient.SendMail(email)
 				if err != nil {
 					fmt.Println(err)
-				} else {
-
 				}
 				respuesta.Valido = true
 			} else {
@@ -213,7 +213,22 @@ func handlerLogin(w http.ResponseWriter, req *http.Request) {
 }
 
 func handlerConfirmarLogin(w http.ResponseWriter, req *http.Request) {
+	req.ParseForm()                              // es necesario parsear el formulario
+	w.Header().Set("Content-Type", "text/plain") // cabecera estándar
 
+	decoder := json.NewDecoder(req.Body)
+	var j jsonCodigoIdentificacion
+	var respuesta jsonIdentificacionServidor
+	respuesta.Valido = false
+	decoder.Decode(&j)
+	if j.Codigo == codigos[j.Usuario] {
+		delete(codigos, j.Usuario)
+		respuesta.Valido = true
+	} else {
+		respuesta.Mensaje = "Código incorrecto"
+	}
+
+	response(w, respuesta)
 }
 
 func handlerBuscar(w http.ResponseWriter, req *http.Request) {

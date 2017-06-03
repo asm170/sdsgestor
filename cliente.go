@@ -110,7 +110,7 @@ func menuRegistroUsuario(mensajeMenuRegistro string) (string, string, string) {
 	fmt.Println("+---------------------------------------------------+")
 	fmt.Printf(mensajeMenuRegistro)
 	// Solicitamos los datos al usuario
-	fmt.Print("Nombre de usuario: ")
+	fmt.Print("Email: ")
 	scanner.Scan()
 	usuario = scanner.Text()
 	fmt.Print("Password: ")
@@ -573,6 +573,7 @@ func menuLoginUsuario(mensajeLogin string) (string, string) {
 	// Variables para el login de usuario
 	var usuario string
 	var passLogin string
+	var claveCorreo string
 	// Operacion del menu principal
 	var opMenuPrincipal string
 	// Clave para cifrar y descrifrar AES en el cliente
@@ -586,13 +587,11 @@ func menuLoginUsuario(mensajeLogin string) (string, string) {
 	fmt.Println("|  Introduce tus datos de usuario para entrar  |")
 	fmt.Println("+----------------------------------------------+")
 	fmt.Printf(mensajeLogin)
-	fmt.Print("Nombre de usuario: ")
-
+	fmt.Print("Email: ")
 	scanner.Scan()
 	usuario = scanner.Text()
 	fmt.Print("Password: ")
 	passLogin = leePassword()
-	//fmt.Println(string(pp))
 	// Comprobamos que el usuario ha introducido los datos correctamente
 	if len(usuario) > 0 && len(passLogin) > 0 {
 		// Resumimos el password con SHA3
@@ -607,9 +606,27 @@ func menuLoginUsuario(mensajeLogin string) (string, string) {
 		decoder.Decode(&jis)
 		// Comprobamos que el usuario y password son correctos
 		if jis.Valido == true {
-			mensajeLogin = ""
-			// Mostramos el menu de usuario
-			opMenuPrincipal = menuUsuario(usuario, passAES)
+			// Solicitamos al usuario la clave que se le ha enviado por correo
+			fmt.Print("\nIntroduce la clave: ")
+			scanner.Scan()
+			claveCorreo = scanner.Text()
+			// Convertimos a JSON los datos que le enviaremos al servidor
+			datosJSON := jsonCodigoIdentificacion{Codigo: claveCorreo, Usuario: usuario}
+			// Enviamos al servidor los datos
+			decoder := send("confirmarlogin", datosJSON)
+			decoder.Decode(&jis)
+			// Comprobamos que la clave introducida es correcta
+			if jis.Valido == true {
+				//fmt.Printf("[DEBUG]	Token valido")
+				mensajeLogin = ""
+				// Mostramos el menu de usuario
+				opMenuPrincipal = menuUsuario(usuario, passAES)
+			} else {
+				//fmt.Printf("[DEBUG]	Token invalido")
+				mensajeLogin = "[ERROR] " + jis.Mensaje + "\n"
+				// Mostramos el login otra vez
+				opMenuPrincipal = "1"
+			}
 		} else {
 			mensajeLogin = "[ERROR] " + jis.Mensaje + "\n"
 			// Mostramos el login otra vez
